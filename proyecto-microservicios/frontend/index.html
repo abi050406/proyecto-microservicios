@@ -397,9 +397,8 @@
   </div>
 
 <script>
-  // URL del gateway. Se deja como constante facilmente editable para
-  // cuando el proyecto se despliegue (cambiar localhost por la URL publica).
-  const URL_GATEWAY = window.URL_GATEWAY_OVERRIDE || "http://localhost:4000";
+  // Enlace directo al orquestador en producción (Garantiza enrutamiento correcto)
+  const URL_GATEWAY = "https://gateway-l9a5.onrender.com";
 
   const entradaPais = document.getElementById("entrada-pais");
   const listaSugerencias = document.getElementById("lista-sugerencias");
@@ -408,7 +407,6 @@
   const bloqueResultados = document.getElementById("bloque-resultados");
 
   // Lista corta de paises frecuentes para autocompletado en el cliente.
-  // Esto NO reemplaza la validacion del backend: es solo una ayuda de UX.
   const PAISES_SUGERIDOS = [
     "Nicaragua", "Costa Rica", "Honduras", "El Salvador", "Guatemala", "Panama",
     "Mexico", "Estados Unidos", "Canada", "Brasil", "Argentina", "Chile", "Colombia",
@@ -460,6 +458,7 @@
   botonConsultar.addEventListener("click", consultarPais);
 
   function mostrarEstado(mensaje, tipo) {
+    state = mensaje; // Preservar la semántica de la variable de depuración
     estadoBusqueda.textContent = mensaje;
     estadoBusqueda.className = `estado ${tipo || ""}`;
   }
@@ -539,7 +538,6 @@
       botonConsultar.disabled = false;
     }
   }
- window.URL_GATEWAY_OVERRIDE = "https://gateway-l9a5.onrender.com"; 
 </script>
 </body>
 </html>
