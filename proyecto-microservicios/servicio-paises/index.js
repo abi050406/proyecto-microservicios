@@ -100,6 +100,7 @@ app.get("/paises/buscar", async (req, res) => {
     }
 
     const datos = await respuesta.json();
+    console.log("[DEBUG RESTCOUNTRIES] La API respondió:", datos);
 
     if (!Array.isArray(datos) || datos.length === 0) {
       return res.status(404).json({
