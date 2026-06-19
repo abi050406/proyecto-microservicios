@@ -1,0 +1,52 @@
+version: "3.9"
+
+# Este archivo levanta los 4 microservicios con un solo comando:
+#   docker compose up --build
+#
+# Cada servicio corre en su propio contenedor, aislado, y se comunican
+# entre si usando el nombre del servicio como hostname (resolucion DNS
+# automatica que provee Docker Compose). Esto es exactamente el patron
+# de "microservicios en contenedores separados" que se suele exigir
+# en este tipo de proyectos academicos.
+
+services:
+  servicio-paises:
+    build: ./servicio-paises
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+    restart: unless-stopped
+
+  servicio-hora:
+    build: ./servicio-hora
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
+    restart: unless-stopped
+
+  servicio-clima:
+    build: ./servicio-clima
+    ports:
+      - "4003:4003"
+    environment:
+      - PORT=4003
+    restart: unless-stopped
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      # Dentro de la red de Docker Compose, los servicios se llaman por
+      # su nombre de servicio (no localhost).
+      - URL_SERVICIO_PAISES=http://servicio-paises:4001
+      - URL_SERVICIO_HORA=http://servicio-hora:4002
+      - URL_SERVICIO_CLIMA=http://servicio-clima:4003
+    depends_on:
+      - servicio-paises
+      - servicio-hora
+      - servicio-clima
+    restart: unless-stopped

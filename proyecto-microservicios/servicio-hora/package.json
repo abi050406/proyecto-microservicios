@@ -1,0 +1,16 @@
+{
+  "name": "servicio-hora",
+  "version": "1.0.0",
+  "description": "Microservicio que calcula hora actual por zona horaria IANA y diferencia horaria respecto a Nicaragua",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "luxon": "^3.4.4"
+  }
+}

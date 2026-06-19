@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Centro Horario Mundial — Nicaragua como referencia</title>
+<style>
+  :root {
+    --fondo: #0b1018;
+    --panel: #121a26;
+    --panel-borde: #243043;
+    --texto-principal: #eef2f7;
+    --texto-secundario: #8fa1b8;
+    --acento: #ff8a3d;
+    --acento-suave: rgba(255, 138, 61, 0.12);
+    --verde-ok: #4fd1a5;
+    --rojo-error: #ff6b6b;
+    --fuente-display: "Spectral", Georgia, serif;
+    --fuente-cuerpo: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --fuente-data: "JetBrains Mono", "Courier New", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto-principal);
+    font-family: var(--fuente-cuerpo);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(255, 138, 61, 0.06), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(79, 209, 165, 0.05), transparent 40%);
+  }
+
+  .contenedor {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--panel-borde);
+    padding-bottom: 28px;
+  }
+
+  .eyebrow {
+    font-family: var(--fuente-data);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--acento);
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-family: var(--fuente-display);
+    font-weight: 600;
+    font-size: clamp(28px, 4vw, 42px);
+    margin: 0 0 12px;
+    line-height: 1.15;
+  }
+
+  .subtitulo {
+    color: var(--texto-secundario);
+    font-size: 15px;
+    max-width: 560px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .panel-busqueda {
+    background: var(--panel);
+    border: 1px solid var(--panel-borde);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  .fila-busqueda {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .campo-pais {
+    flex: 1;
+    min-width: 220px;
+    position: relative;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--texto-secundario);
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: #0d1420;
+    border: 1px solid var(--panel-borde);
+    color: var(--texto-principal);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: var(--fuente-cuerpo);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--acento);
+  }
+
+  .lista-sugerencias {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #0d1420;
+    border: 1px solid var(--panel-borde);
+    border-radius: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 20;
+    display: none;
+  }
+
+  .lista-sugerencias.visible { display: block; }
+
+  .sugerencia {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--texto-principal);
+    border-bottom: 1px solid var(--panel-borde);
+  }
+
+  .sugerencia:last-child { border-bottom: none; }
+  .sugerencia:hover { background: var(--acento-suave); }
+
+  button.consultar {
+    background: var(--acento);
+    color: #1a1206;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+    align-self: flex-end;
+  }
+
+  button.consultar:hover { filter: brightness(1.08); }
+  button.consultar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .estado {
+    margin-top: 16px;
+    font-size: 13px;
+    font-family: var(--fuente-data);
+  }
+
+  .estado.error { color: var(--rojo-error); }
+  .estado.cargando { color: var(--texto-secundario); }
+
+  .resultados {
+    display: none;
+  }
+
+  .resultados.visible { display: block; }
+
+  .grid-paises {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 720px) {
+    .grid-paises { grid-template-columns: 1fr; }
+  }
+
+  .tarjeta-pais {
+    background: var(--panel);
+    border: 1px solid var(--panel-borde);
+    border-radius: 14px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tarjeta-pais.referencia {
+    border-color: var(--verde-ok);
+  }
+
+  .tarjeta-pais .etiqueta {
+    font-family: var(--fuente-data);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+    margin-bottom: 6px;
+  }
+
+  .tarjeta-pais.referencia .etiqueta { color: var(--verde-ok); }
+
+  .nombre-pais {
+    font-family: var(--fuente-display);
+    font-size: 24px;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nombre-pais img {
+    width: 28px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 2px;
+    border: 1px solid var(--panel-borde);
+  }
+
+  .meta-pais {
+    color: var(--texto-secundario);
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  .bloque-dato {
+    margin-bottom: 16px;
+  }
+
+  .bloque-dato:last-child { margin-bottom: 0; }
+
+  .bloque-dato .etiqueta-dato {
+    font-size: 11px;
+    color: var(--texto-secundario);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .hora-grande {
+    font-family: var(--fuente-data);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--texto-principal);
+    line-height: 1;
+  }
+
+  .fecha-pequena {
+    font-family: var(--fuente-data);
+    font-size: 12px;
+    color: var(--texto-secundario);
+    margin-top: 4px;
+  }
+
+  .temperatura-grande {
+    font-family: var(--fuente-data);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--acento);
+  }
+
+  .condicion-clima {
+    font-size: 13px;
+    color: var(--texto-secundario);
+    margin-top: 2px;
+  }
+
+  .panel-diferencia {
+    background: linear-gradient(135deg, var(--acento-suave), transparent);
+    border: 1px solid var(--panel-borde);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .panel-diferencia .etiqueta-dato {
+    font-size: 11px;
+    color: var(--texto-secundario);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .diferencia-texto {
+    font-family: var(--fuente-display);
+    font-size: 22px;
+    color: var(--texto-principal);
+  }
+
+  .diferencia-texto .acento { color: var(--acento); font-weight: 600; }
+
+  .dato-no-disponible {
+    color: var(--texto-secundario);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--panel-borde);
+    color: var(--texto-secundario);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  footer code {
+    font-family: var(--fuente-data);
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="contenedor">
+    <header>
+      <p class="eyebrow">Sistema de microservicios &middot; APIs externas</p>
+      <h1>Centro horario mundial</h1>
+      <p class="subtitulo">
+        Selecciona un país para consultar su hora y temperatura actual,
+        comparadas en todo momento contra Nicaragua.
+      </p>
+    </header>
+
+    <section class="panel-busqueda">
+      <div class="fila-busqueda">
+        <div class="campo-pais">
+          <label for="entrada-pais">País a consultar</label>
+          <input type="text" id="entrada-pais" placeholder="Ej. Japón, España, Brasil..." autocomplete="off" />
+          <div class="lista-sugerencias" id="lista-sugerencias"></div>
+        </div>
+        <button class="consultar" id="boton-consultar">Consultar</button>
+      </div>
+      <div class="estado" id="estado-busqueda"></div>
+    </section>
+
+    <section class="resultados" id="bloque-resultados">
+      <div class="grid-paises">
+        <article class="tarjeta-pais" id="tarjeta-elegido">
+          <p class="etiqueta">País consultado</p>
+          <h2 class="nombre-pais" id="nombre-pais-elegido">—</h2>
+          <p class="meta-pais" id="meta-pais-elegido">—</p>
+
+          <div class="bloque-dato">
+            <p class="etiqueta-dato">Hora local</p>
+            <div class="hora-grande" id="hora-elegido">—</div>
+            <div class="fecha-pequena" id="fecha-elegido">—</div>
+          </div>
+
+          <div class="bloque-dato">
+            <p class="etiqueta-dato">Temperatura actual</p>
+            <div class="temperatura-grande" id="temp-elegido">—</div>
+            <div class="condicion-clima" id="condicion-elegido">—</div>
+          </div>
+        </article>
+
+        <article class="tarjeta-pais referencia" id="tarjeta-nicaragua">
+          <p class="etiqueta">Referencia fija</p>
+          <h2 class="nombre-pais" id="nombre-pais-nicaragua">Nicaragua</h2>
+          <p class="meta-pais" id="meta-pais-nicaragua">—</p>
+
+          <div class="bloque-dato">
+            <p class="etiqueta-dato">Hora local</p>
+            <div class="hora-grande" id="hora-nicaragua">—</div>
+            <div class="fecha-pequena" id="fecha-nicaragua">—</div>
+          </div>
+
+          <div class="bloque-dato">
+            <p class="etiqueta-dato">Temperatura actual</p>
+            <div class="temperatura-grande" id="temp-nicaragua">—</div>
+            <div class="condicion-clima" id="condicion-nicaragua">—</div>
+          </div>
+        </article>
+      </div>
+
+      <div class="panel-diferencia">
+        <p class="etiqueta-dato">Diferencia horaria con Nicaragua</p>
+        <div class="diferencia-texto" id="texto-diferencia">—</div>
+      </div>
+    </section>
+
+    <footer>
+      Arquitectura de microservicios: <code>servicio-paises</code> (datos geográficos vía RestCountries),
+      <code>servicio-clima</code> (temperatura vía Open-Meteo), <code>servicio-hora</code>
+      (cálculo de zona horaria vía Luxon/IANA), orquestados por un <code>gateway</code> central
+      que este frontend consume a través de un único endpoint.
+    </footer>
+  </div>
+
+<script>
+  // URL del gateway. Se deja como constante facilmente editable para
+  // cuando el proyecto se despliegue (cambiar localhost por la URL publica).
+  const URL_GATEWAY = window.URL_GATEWAY_OVERRIDE || "http://localhost:4000";
+
+  const entradaPais = document.getElementById("entrada-pais");
+  const listaSugerencias = document.getElementById("lista-sugerencias");
+  const botonConsultar = document.getElementById("boton-consultar");
+  const estadoBusqueda = document.getElementById("estado-busqueda");
+  const bloqueResultados = document.getElementById("bloque-resultados");
+
+  // Lista corta de paises frecuentes para autocompletado en el cliente.
+  // Esto NO reemplaza la validacion del backend: es solo una ayuda de UX.
+  const PAISES_SUGERIDOS = [
+    "Nicaragua", "Costa Rica", "Honduras", "El Salvador", "Guatemala", "Panama",
+    "Mexico", "Estados Unidos", "Canada", "Brasil", "Argentina", "Chile", "Colombia",
+    "España", "Francia", "Alemania", "Italia", "Reino Unido", "Portugal",
+    "Japon", "China", "Corea del Sur", "India", "Australia", "Egipto", "Sudafrica",
+  ];
+
+  entradaPais.addEventListener("input", () => {
+    const valor = entradaPais.value.trim().toLowerCase();
+    if (valor.length === 0) {
+      listaSugerencias.classList.remove("visible");
+      return;
+    }
+    const coincidencias = PAISES_SUGERIDOS.filter((p) =>
+      p.toLowerCase().includes(valor)
+    ).slice(0, 6);
+
+    if (coincidencias.length === 0) {
+      listaSugerencias.classList.remove("visible");
+      return;
+    }
+
+    listaSugerencias.innerHTML = coincidencias
+      .map((p) => `<div class="sugerencia" data-valor="${p}">${p}</div>`)
+      .join("");
+    listaSugerencias.classList.add("visible");
+  });
+
+  listaSugerencias.addEventListener("click", (evento) => {
+    const elegido = evento.target.closest(".sugerencia");
+    if (!elegido) return;
+    entradaPais.value = elegido.dataset.valor;
+    listaSugerencias.classList.remove("visible");
+  });
+
+  document.addEventListener("click", (evento) => {
+    if (!evento.target.closest(".campo-pais")) {
+      listaSugerencias.classList.remove("visible");
+    }
+  });
+
+  entradaPais.addEventListener("keydown", (evento) => {
+    if (evento.key === "Enter") {
+      listaSugerencias.classList.remove("visible");
+      consultarPais();
+    }
+  });
+
+  botonConsultar.addEventListener("click", consultarPais);
+
+  function mostrarEstado(mensaje, tipo) {
+    estadoBusqueda.textContent = mensaje;
+    estadoBusqueda.className = `estado ${tipo || ""}`;
+  }
+
+  function formatearTemperatura(valor) {
+    if (valor === undefined || valor === null) return null;
+    return `${valor}°C`;
+  }
+
+  function pintarBloquePais(prefijoId, datosPais, datosClima, datosHora) {
+    document.getElementById(`nombre-pais-${prefijoId}`).innerHTML = datosPais.bandera
+      ? `<img src="${datosPais.bandera}" alt="" /> ${datosPais.nombreComun}`
+      : datosPais.nombreComun;
+
+    document.getElementById(`meta-pais-${prefijoId}`).textContent =
+      `Capital: ${datosPais.capital} · ${datosPais.region}`;
+
+    if (datosHora && datosHora.disponible !== false) {
+      document.getElementById(`hora-${prefijoId}`).textContent = datosHora.horaZonaConsultada.horaLegible;
+      document.getElementById(`fecha-${prefijoId}`).textContent =
+        `${datosHora.horaZonaConsultada.fechaLegible} · ${datosHora.horaZonaConsultada.abreviaturaZona}`;
+    } else {
+      document.getElementById(`hora-${prefijoId}`).innerHTML = '<span class="dato-no-disponible">No disponible</span>';
+      document.getElementById(`fecha-${prefijoId}`).textContent = "";
+    }
+
+    if (datosClima && datosClima.disponible !== false) {
+      document.getElementById(`temp-${prefijoId}`).textContent = formatearTemperatura(datosClima.temperaturaActualC);
+      document.getElementById(`condicion-${prefijoId}`).textContent = datosClima.condicion;
+    } else {
+      document.getElementById(`temp-${prefijoId}`).innerHTML = '<span class="dato-no-disponible">No disponible</span>';
+      document.getElementById(`condicion-${prefijoId}`).textContent = "";
+    }
+  }
+
+  async function consultarPais() {
+    const nombrePais = entradaPais.value.trim();
+
+    if (nombrePais.length < 2) {
+      mostrarEstado("Escribe al menos 2 caracteres para consultar un país.", "error");
+      return;
+    }
+
+    botonConsultar.disabled = true;
+    mostrarEstado("Consultando microservicios...", "cargando");
+    bloqueResultados.classList.remove("visible");
+
+    try {
+      const respuesta = await fetch(`${URL_GATEWAY}/api/consultar?pais=${encodeURIComponent(nombrePais)}`);
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarEstado(datos.detalle || datos.error || "Ocurrió un error al consultar.", "error");
+        return;
+      }
+
+      pintarBloquePais("elegido", datos.paisConsultado, datos.climaPaisConsultado, datos.horaPaisConsultado);
+      pintarBloquePais("nicaragua", datos.nicaragua.pais, datos.nicaragua.clima, datos.nicaragua.hora);
+
+      const textoDiferencia = document.getElementById("texto-diferencia");
+      if (datos.esConsultaSobreNicaragua) {
+        textoDiferencia.innerHTML = `Estás consultando <span class="acento">Nicaragua</span>, no hay diferencia que calcular.`;
+      } else if (datos.horaPaisConsultado && datos.horaPaisConsultado.disponible !== false) {
+        textoDiferencia.innerHTML = `<span class="acento">${datos.paisConsultado.nombreComun}</span> está ${datos.horaPaisConsultado.diferenciaHoraria.descripcion}.`;
+      } else {
+        textoDiferencia.innerHTML = `<span class="dato-no-disponible">No fue posible calcular la diferencia horaria.</span>`;
+      }
+
+      bloqueResultados.classList.add("visible");
+      mostrarEstado("", "");
+    } catch (error) {
+      mostrarEstado(
+        "No se pudo conectar con el gateway. Verifica que los microservicios estén corriendo.",
+        "error"
+      );
+    } finally {
+      botonConsultar.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

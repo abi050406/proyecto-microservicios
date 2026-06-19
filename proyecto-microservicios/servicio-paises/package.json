@@ -1,0 +1,16 @@
+{
+  "name": "servicio-paises",
+  "version": "1.0.0",
+  "description": "Microservicio que provee datos geograficos y de zona horaria de un pais (capital, coordenadas, timezone IANA)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2"
+  }
+}
