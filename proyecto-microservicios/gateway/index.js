@@ -58,7 +58,7 @@ app.get("/health", (_req, res) => {
 app.get("/health/completo", async (_req, res) => {
   const verificar = async (url, nombre) => {
     try {
-      const r = await fetch(`${url}/health`, { timeout: 4000 });
+      const r = await fetch(`${url}/health`, { timeout: 60000 });
       return { servicio: nombre, url, estado: r.ok ? "activo" : "responde con error" };
     } catch {
       return { servicio: nombre, url, estado: "no disponible" };
