@@ -33,9 +33,10 @@ const COMODINES_LOCALES = {
   brazil: { name: { common: "Brasil", official: "República Federativa del Brasil" }, cca2: "BR", capital: ["Brasilia"], region: "Americas", latlng: [-14.235004, -51.92528], timezones: ["America/Sao_Paulo"], flags: { png: "https://flagcdn.com/w320/br.png" } },
   españa: { name: { common: "España", official: "Reino de España" }, cca2: "ES", capital: ["Madrid"], region: "Europe", latlng: [40.463667, -3.74922], timezones: ["Europe/Madrid"], flags: { png: "https://flagcdn.com/w320/es.png" } },
   spain: { name: { common: "España", official: "Reino de España" }, cca2: "ES", capital: ["Madrid"], region: "Europe", latlng: [40.463667, -3.74922], timezones: ["Europe/Madrid"], flags: { png: "https://flagcdn.com/w320/es.png" } },
-  japon: { name: { common: "Japón", official: "Canadá" }, cca2: "JP", capital: ["Tokio"], region: "Asia", latlng: [36.204824, 138.252924], timezones: ["Asia/Tokyo"], flags: { png: "https://flagcdn.com/w320/jp.png" } },
-  japons: { name: { common: "Japón", official: "Canadá" }, cca2: "JP", capital: ["Tokio"], region: "Asia", latlng: [36.204824, 138.252924], timezones: ["Asia/Tokyo"], flags: { png: "https://flagcdn.com/w320/jp.png" } },
-  japan: { name: { common: "Japón", official: "Canadá" }, cca2: "JP", capital: ["Tokio"], region: "Asia", latlng: [36.204824, 138.252924], timezones: ["Asia/Tokyo"], flags: { png: "https://flagcdn.com/w320/jp.png" } },
+  // 🗺️ CORREGIDO: Nombres oficiales cambiados de "Canadá" a "Japón"
+  japon: { name: { common: "Japón", official: "Japón" }, cca2: "JP", capital: ["Tokio"], region: "Asia", latlng: [36.204824, 138.252924], timezones: ["Asia/Tokyo"], flags: { png: "https://flagcdn.com/w320/jp.png" } },
+  japons: { name: { common: "Japón", official: "Japón" }, cca2: "JP", capital: ["Tokio"], region: "Asia", latlng: [36.204824, 138.252924], timezones: ["Asia/Tokyo"], flags: { png: "https://flagcdn.com/w320/jp.png" } },
+  japan: { name: { common: "Japón", official: "Japón" }, cca2: "JP", capital: ["Tokio"], region: "Asia", latlng: [36.204824, 138.252924], timezones: ["Asia/Tokyo"], flags: { png: "https://flagcdn.com/w320/jp.png" } },
   "estados unidos": { name: { common: "Estados Unidos", official: "Estados Unidos de América" }, cca2: "US", capital: ["Washington D.C."], region: "Americas", latlng: [37.09024, -95.712891], timezones: ["America/New_York"], flags: { png: "https://flagcdn.com/w320/us.png" } },
   usa: { name: { common: "Estados Unidos", official: "Estados Unidos de América" }, cca2: "US", capital: ["Washington D.C."], region: "Americas", latlng: [37.09024, -95.712891], timezones: ["America/New_York"], flags: { png: "https://flagcdn.com/w320/us.png" } },
   "costa rica": { name: { common: "Costa Rica", official: "República de Costa Rica" }, cca2: "CR", capital: ["San José"], region: "Americas", latlng: [9.748917, -83.753428], timezones: ["America/Costa_Rica"], flags: { png: "https://flagcdn.com/w320/cr.png" } }
@@ -77,7 +78,7 @@ app.get("/paises/buscar", async (req, res) => {
     console.warn("[servicio-paises] Error o timeout con la API externa, recurriendo al motor de contingencia local.");
   }
 
-  // 🛡️ ACTIVACIÓN DEL FALLBACK SI LA API EXTERNA FALLÓ O FUE BLOQUEADA por Render
+  // 🛡️ ACTIVACIÓN DEL FALLBACK SI LA API EXTERNA FALLÓ O FUE BLOQUEADA
   if (!pais) {
     if (COMODINES_LOCALES[llaveBusqueda]) {
       pais = COMODINES_LOCALES[llaveBusqueda];
