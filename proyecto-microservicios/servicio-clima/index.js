@@ -115,9 +115,21 @@ app.get("/clima/actual", async (req, res) => {
     const respuesta = await fetch(url, { timeout: 8000 });
 
     if (!respuesta.ok) {
+      console.error(`[servicio-clima] Open-Meteo respondio con status ${respuesta.status} ${respuesta.statusText}`);
+      let cuerpoError = "";
+      try {
+        cuerpoError = await respuesta.text();
+        console.error(`[servicio-clima] Cuerpo de la respuesta de error: ${cuerpoError.substring(0, 300)}`);
+      } catch (errorLectura) {
+        console.error("[servicio-clima] No se pudo leer el cuerpo del error");
+      }
       return res.status(503).json({
         error: "Servicio externo no disponible",
         detalle: "La API de clima (Open-Meteo) no respondio correctamente. Intenta de nuevo en unos segundos.",
+        diagnostico: {
+          statusExterno: respuesta.status,
+          statusTextExterno: respuesta.statusText,
+        },
       });
     }
 
