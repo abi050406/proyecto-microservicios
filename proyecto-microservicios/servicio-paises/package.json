@@ -9,9 +9,10 @@
     "dev": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "cors": "^2.8.5",
-    "node-fetch": "^3.3.2",
-    "i18n-iso-countries": "^7.14.0"
+    "countries-and-timezones": "^3.9.0",
+    "express": "^4.19.2",
+    "i18n-iso-countries": "^7.14.0",
+    "world-countries": "^5.1.0"
   }
 }

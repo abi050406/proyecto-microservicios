@@ -1,32 +1,24 @@
 /**
  * SERVICIO DE PAISES
  * ------------------
- * Responsabilidad unica: dado un nombre de pais (en español o ingles),
- * resolver sus datos geograficos basicos: nombre oficial, capital,
+ * Responsabilidad unica: dado un nombre de pais en espanol o ingles,
+ * resolver datos geograficos basicos: nombre oficial, capital,
  * coordenadas y zona horaria IANA principal.
  *
- * Fuente de datos externa: REST Countries API (https://restcountries.com)
- * - Publica, gratuita, sin necesidad de API key.
+ * Fuente de datos local:
+ * - i18n-iso-countries: identifica paises por nombre en espanol o ingles.
+ * - world-countries: provee capital, region, coordenadas y nombres oficiales.
+ * - countries-and-timezones: provee zonas horarias IANA por codigo ISO2.
  *
- * PROBLEMA RESUELTO EN ESTA VERSION:
- * RestCountries solo reconoce nombres de paises en ingles (o el nombre
- * nativo/oficial de cada pais), NO en español. Por eso buscar "España"
- * directamente fallaba (su nombre en ingles es "Spain"), mientras que
- * "Brasil" o "Japon" coincidian por casualidad al ser muy similares a
- * "Brazil" / "Japan".
- *
- * La solucion es traducir el nombre que escribe el usuario (en español)
- * a su nombre en ingles ANTES de consultar la API externa, usando la
- * libreria "i18n-iso-countries", que contiene el catalogo oficial de los
- * ~250 paises reconocidos por ISO 3166 en múltiples idiomas. Esto es
- * mucho mas robusto que mantener una lista corta de paises a mano: cubre
- * practicamente cualquier pais que el usuario escriba en español.
+ * Esta version no consulta RestCountries ni ninguna API externa. Asi evita
+ * que el servicio falle si un proveedor cambia o descontinua su API.
  */
 
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
 import countries from "i18n-iso-countries";
+import worldCountries from "world-countries";
+import timezones from "countries-and-timezones";
 import esLocale from "i18n-iso-countries/langs/es.json" with { type: "json" };
 import enLocale from "i18n-iso-countries/langs/en.json" with { type: "json" };
 
@@ -35,7 +27,6 @@ countries.registerLocale(enLocale);
 
 const app = express();
 const PUERTO = process.env.PORT || 4001;
-const REST_COUNTRIES_BASE = "https://restcountries.com/v3.1";
 
 app.use(cors());
 app.use(express.json());
@@ -54,11 +45,9 @@ function quitarTildes(texto) {
 }
 
 /**
- * Apodos y nombres coloquiales en español que NO comparten texto con el
- * nombre oficial registrado en la libreria (por eso una busqueda de
- * "contiene" no los encuentra). Esta lista es pequeña y solo complementa
- * a la libreria para estos casos puntuales; no es la fuente principal
- * de datos.
+ * Apodos y nombres coloquiales que no siempre coinciden con el catalogo
+ * ISO por nombre exacto. Solo complementan a la libreria, no reemplazan
+ * el catalogo completo de paises.
  */
 const APODOS_COMUNES = {
   "corea del sur": "KR",
@@ -79,35 +68,45 @@ const APODOS_COMUNES = {
 };
 
 /**
- * Traduce un nombre de pais escrito en español a su nombre en ingles,
- * que es lo que entiende RestCountries. Si el nombre ya esta en ingles
- * (o es ambiguo), tambien intenta resolverlo para no romper busquedas
- * que ya funcionaban antes.
- *
- * Devuelve null si no se pudo identificar ningun pais, lo cual permite
- * a quien llama decidir si usa el nombre original como ultimo recurso.
+ * Algunos paises con territorios lejanos o muchas zonas devuelven zonas
+ * en orden alfabetico. Para la interfaz, priorizamos la zona de la
+ * capital o la zona principal esperada por el usuario.
  */
-function traducirNombrePaisAIngles(nombreOriginal) {
+const ZONAS_HORARIAS_PRIORITARIAS = {
+  AR: "America/Argentina/Buenos_Aires",
+  AU: "Australia/Sydney",
+  BR: "America/Sao_Paulo",
+  CA: "America/Toronto",
+  CL: "America/Santiago",
+  EC: "America/Guayaquil",
+  ES: "Europe/Madrid",
+  FR: "Europe/Paris",
+  GB: "Europe/London",
+  MX: "America/Mexico_City",
+  PT: "Europe/Lisbon",
+  RU: "Europe/Moscow",
+  US: "America/New_York",
+};
+
+const PAISES_POR_ISO2 = new Map(worldCountries.map((pais) => [pais.cca2, pais]));
+
+/**
+ * Identifica un pais escrito en espanol o ingles y devuelve su codigo ISO2.
+ * Devuelve null si no se pudo identificar ningun pais.
+ */
+function resolverCodigoIso2(nombreOriginal) {
   const entrada = quitarTildes(nombreOriginal.trim());
 
   if (APODOS_COMUNES[entrada]) {
-    return countries.getName(APODOS_COMUNES[entrada], "en");
+    return APODOS_COMUNES[entrada];
   }
 
-  // Coincidencia exacta contra el catalogo en español.
   let codigoIso = countries.getAlpha2Code(nombreOriginal, "es");
 
-  // Si no hubo coincidencia exacta, tambien probamos contra el catalogo
-  // en ingles (cubre el caso de que el usuario ya escriba "Spain").
   if (!codigoIso) {
     codigoIso = countries.getAlpha2Code(nombreOriginal, "en");
   }
 
-  // Busqueda difusa como ultimo recurso: el texto del usuario esta
-  // contenido en el nombre oficial en español, o viceversa. Se prefiere
-  // siempre la coincidencia mas larga/especifica, para evitar que
-  // nombres parecidos (ej. "Republica Dominicana" vs "Dominica") se
-  // confundan entre si.
   if (!codigoIso) {
     const nombresEs = countries.getNames("es");
     let mejorCodigo = null;
@@ -117,6 +116,7 @@ function traducirNombrePaisAIngles(nombreOriginal) {
       const oficialNormalizado = quitarTildes(nombreOficial);
       const hayCoincidencia =
         oficialNormalizado.includes(entrada) || entrada.includes(oficialNormalizado);
+
       if (hayCoincidencia) {
         const longitudCompartida = Math.min(oficialNormalizado.length, entrada.length);
         if (longitudCompartida > mejorLongitud) {
@@ -125,31 +125,40 @@ function traducirNombrePaisAIngles(nombreOriginal) {
         }
       }
     }
+
     codigoIso = mejorCodigo;
   }
 
-  if (!codigoIso) return null;
-  return countries.getName(codigoIso, "en");
+  return codigoIso ?? null;
+}
+
+function obtenerZonaHorariaPrincipal(codigoIso2) {
+  const paisConZonas = timezones.getCountry(codigoIso2);
+  const zonas = paisConZonas?.timezones ?? [];
+  const zonaPrincipal = ZONAS_HORARIAS_PRIORITARIAS[codigoIso2] ?? zonas[0] ?? null;
+
+  return {
+    zonaPrincipal,
+    zonas,
+  };
 }
 
 /**
- * GET /paises/buscar?nombre=España
+ * GET /paises/buscar?nombre=Espana
  *
  * Validaciones explicitas:
  * - El parametro "nombre" es obligatorio y debe tener al menos 2 caracteres.
- * - Solo letras, espacios, tildes, guiones y apostrofes (evita caracteres
- *   raros hacia la API externa).
- * - 404 si no se reconoce ningun pais con ese nombre (ni en español ni en
- *   ingles), 503 si la API externa no responde, 422 si los datos vienen
- *   incompletos.
+ * - Solo letras, espacios, tildes, guiones y apostrofes.
+ * - 404 si no se reconoce ningun pais con ese nombre.
+ * - 422 si los datos locales vienen incompletos.
  */
-app.get("/paises/buscar", async (req, res) => {
+app.get("/paises/buscar", (req, res) => {
   const { nombre } = req.query;
 
   if (!nombre || typeof nombre !== "string") {
     return res.status(400).json({
       error: "Parametro invalido",
-      detalle: "Debes enviar un parametro 'nombre' con el nombre del pais. Ejemplo: /paises/buscar?nombre=España",
+      detalle: "Debes enviar un parametro 'nombre' con el nombre del pais. Ejemplo: /paises/buscar?nombre=Espana",
     });
   }
 
@@ -161,7 +170,7 @@ app.get("/paises/buscar", async (req, res) => {
     });
   }
 
-  const patronValido = /^[a-zA-ZÀ-ÿ\s'.-]+$/;
+  const patronValido = /^[a-zA-Z\u00C0-\u00FF\s'.-]+$/;
   if (!patronValido.test(nombreLimpio)) {
     return res.status(400).json({
       error: "Parametro invalido",
@@ -169,73 +178,39 @@ app.get("/paises/buscar", async (req, res) => {
     });
   }
 
-  // Traducimos a ingles antes de consultar la API externa. Si no se pudo
-  // traducir (pais no reconocido en ningun catalogo), usamos el nombre
-  // original como ultimo intento: asi no perdemos compatibilidad con
-  // nombres nativos que RestCountries si reconozca de forma directa.
-  const nombreEnIngles = traducirNombrePaisAIngles(nombreLimpio);
-  const nombreParaConsultarApi = nombreEnIngles ?? nombreLimpio;
+  const codigoIso2 = resolverCodigoIso2(nombreLimpio);
 
-  try {
-    const url = `${REST_COUNTRIES_BASE}/name/${encodeURIComponent(nombreParaConsultarApi)}?fields=name,capital,latlng,flags,timezones,cca2,region`;
-    const respuesta = await fetch(url, { timeout: 8000 });
-
-    if (respuesta.status === 404) {
-      return res.status(404).json({
-        error: "Pais no encontrado",
-        detalle: `No se encontro ningun pais que coincida con "${nombreLimpio}". Verifica la ortografia.`,
-      });
-    }
-
-    if (!respuesta.ok) {
-      return res.status(503).json({
-        error: "Servicio externo no disponible",
-        detalle: "La API de paises (RestCountries) no respondio correctamente. Intenta de nuevo en unos segundos.",
-      });
-    }
-
-    const datos = await respuesta.json();
-
-    if (!Array.isArray(datos) || datos.length === 0) {
-      return res.status(404).json({
-        error: "Pais no encontrado",
-        detalle: `No se encontro ningun pais que coincida con "${nombreLimpio}".`,
-      });
-    }
-
-    const pais = datos[0];
-
-    if (!pais.timezones || pais.timezones.length === 0 || !pais.latlng) {
-      return res.status(422).json({
-        error: "Datos incompletos",
-        detalle: `El pais "${nombreLimpio}" fue encontrado pero no tiene datos de zona horaria o coordenadas disponibles.`,
-      });
-    }
-
-    return res.status(200).json({
-      // Usamos el nombre comun que devuelve RestCountries en ingles, pero
-      // si el usuario escribio en español preferimos mostrar lo que el
-      // escribio para que la interfaz se sienta natural en español.
-      nombreComun: nombreLimpio,
-      nombreOficial: pais.name?.official ?? nombreLimpio,
-      codigoIso2: pais.cca2 ?? null,
-      capital: pais.capital?.[0] ?? "No disponible",
-      region: pais.region ?? "No disponible",
-      coordenadas: {
-        latitud: pais.latlng[0],
-        longitud: pais.latlng[1],
-      },
-      zonaHorariaPrincipal: pais.timezones[0],
-      zonasHorariasDisponibles: pais.timezones,
-      bandera: pais.flags?.png ?? null,
-    });
-  } catch (error) {
-    console.error("[servicio-paises] Error inesperado:", error.message);
-    return res.status(503).json({
-      error: "Servicio externo no disponible",
-      detalle: "No se pudo contactar la API de paises. Verifica tu conexion a internet o intenta mas tarde.",
+  if (!codigoIso2) {
+    return res.status(404).json({
+      error: "Pais no encontrado",
+      detalle: `No se encontro ningun pais que coincida con "${nombreLimpio}". Verifica la ortografia.`,
     });
   }
+
+  const pais = PAISES_POR_ISO2.get(codigoIso2);
+  const { zonaPrincipal, zonas } = obtenerZonaHorariaPrincipal(codigoIso2);
+
+  if (!pais || !pais.latlng || pais.latlng.length < 2 || !zonaPrincipal) {
+    return res.status(422).json({
+      error: "Datos incompletos",
+      detalle: `El pais "${nombreLimpio}" fue encontrado pero no tiene datos locales completos de zona horaria o coordenadas.`,
+    });
+  }
+
+  return res.status(200).json({
+    nombreComun: nombreLimpio,
+    nombreOficial: pais.translations?.spa?.official ?? pais.name?.official ?? nombreLimpio,
+    codigoIso2: pais.cca2,
+    capital: pais.capital?.[0] ?? "No disponible",
+    region: pais.region ?? "No disponible",
+    coordenadas: {
+      latitud: pais.latlng[0],
+      longitud: pais.latlng[1],
+    },
+    zonaHorariaPrincipal: zonaPrincipal,
+    zonasHorariasDisponibles: zonas,
+    bandera: pais.flag ?? null,
+  });
 });
 
 app.use((req, res) => {
