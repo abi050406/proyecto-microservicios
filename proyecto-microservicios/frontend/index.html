@@ -225,6 +225,11 @@
     border: 1px solid var(--panel-borde);
   }
 
+  .bandera-emoji {
+    font-size: 28px;
+    line-height: 1;
+  }
+
   .meta-pais {
     color: var(--texto-secundario);
     font-size: 13px;
@@ -389,7 +394,7 @@
     </section>
 
     <footer>
-      Arquitectura de microservicios: <code>servicio-paises</code> (datos geográficos vía RestCountries),
+      Arquitectura de microservicios: <code>servicio-paises</code> (datos geográficos desde catálogo local),
       <code>servicio-clima</code> (temperatura vía Open-Meteo), <code>servicio-hora</code>
       (cálculo de zona horaria vía Luxon/IANA), orquestados por un <code>gateway</code> central
       que este frontend consume a través de un único endpoint.
@@ -397,8 +402,14 @@
   </div>
 
 <script>
-  // Enlace directo al orquestador en producción (Garantiza enrutamiento correcto)
-  const URL_GATEWAY = "https://gateway-l9a5.onrender.com";
+  const URL_GATEWAY_PRODUCCION = "https://gateway-l9a5.onrender.com";
+  const parametrosUrl = new URLSearchParams(window.location.search);
+  const URL_GATEWAY =
+    parametrosUrl.get("gateway") ||
+    window.URL_GATEWAY_OVERRIDE ||
+    (["localhost", "127.0.0.1"].includes(window.location.hostname)
+      ? "http://localhost:4000"
+      : URL_GATEWAY_PRODUCCION);
 
   const entradaPais = document.getElementById("entrada-pais");
   const listaSugerencias = document.getElementById("lista-sugerencias");
@@ -458,7 +469,6 @@
   botonConsultar.addEventListener("click", consultarPais);
 
   function mostrarEstado(mensaje, tipo) {
-    state = mensaje; // Preservar la semántica de la variable de depuración
     estadoBusqueda.textContent = mensaje;
     estadoBusqueda.className = `estado ${tipo || ""}`;
   }
@@ -469,9 +479,24 @@
   }
 
   function pintarBloquePais(prefijoId, datosPais, datosClima, datosHora) {
-    document.getElementById(`nombre-pais-${prefijoId}`).innerHTML = datosPais.bandera
-      ? `<img src="${datosPais.bandera}" alt="" /> ${datosPais.nombreComun}`
-      : datosPais.nombreComun;
+    const nombrePais = document.getElementById(`nombre-pais-${prefijoId}`);
+    nombrePais.textContent = "";
+
+    if (datosPais.bandera) {
+      if (/^https?:\/\//.test(datosPais.bandera)) {
+        const bandera = document.createElement("img");
+        bandera.src = datosPais.bandera;
+        bandera.alt = "";
+        nombrePais.appendChild(bandera);
+      } else {
+        const bandera = document.createElement("span");
+        bandera.className = "bandera-emoji";
+        bandera.textContent = datosPais.bandera;
+        nombrePais.appendChild(bandera);
+      }
+    }
+
+    nombrePais.appendChild(document.createTextNode(datosPais.bandera ? ` ${datosPais.nombreComun}` : datosPais.nombreComun));
 
     document.getElementById(`meta-pais-${prefijoId}`).textContent =
       `Capital: ${datosPais.capital} · ${datosPais.region}`;

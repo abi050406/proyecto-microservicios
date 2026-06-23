@@ -26,8 +26,8 @@ El sistema está dividido en 4 componentes independientes, cada uno con una
          │ coordenadas y zona  │  │ actual por lat/lon  │  │ y diferencia con     │
          │ horaria de un país  │  │                     │  │ Nicaragua            │
          │                     │  │                     │  │                     │
-         │ API externa:        │  │ API externa:         │  │ Sin API externa:    │
-         │ RestCountries.com   │  │ Open-Meteo.com       │  │ libreria Luxon       │
+         │ Catalogo local      │  │ API externa:         │  │ Sin API externa:    │
+         │ paises + zonas      │  │ Open-Meteo.com       │  │ libreria Luxon       │
          └────────────────────┘  └────────────────────┘  └────────────────────┘
 ```
 
@@ -55,8 +55,12 @@ implementación interna de cualquier microservicio sin tocar el frontend.
 
 | API | Para qué se usa | Requiere API key | Documentación |
 |---|---|---|---|
-| [RestCountries](https://restcountries.com) | Capital, coordenadas, zona horaria IANA de un país | No | restcountries.com |
 | [Open-Meteo](https://open-meteo.com) | Temperatura, humedad, viento y condición climática actual | No | open-meteo.com |
+
+Los datos geográficos del país (capital, coordenadas y zona horaria IANA)
+se resuelven localmente con paquetes npm (`i18n-iso-countries`,
+`world-countries` y `countries-and-timezones`). Esto evita depender de una
+API externa para datos que casi no cambian y hace más estable la demo.
 
 La hora y la diferencia horaria **no** se calculan con una API externa de
 hora: se calculan localmente con la librería **Luxon**, que usa la base de
@@ -186,9 +190,9 @@ proyecto-microservicios/
 
 ## 7. Limitaciones conocidas (para ser transparente en la exposición)
 
-- El plan gratuito de las APIs externas no garantiza disponibilidad 24/7;
-  si RestCountries u Open-Meteo están caídos, el sistema responde con un
-  error 503 explícito en lugar de fallar de forma confusa.
+- El plan gratuito de Open-Meteo no garantiza disponibilidad 24/7; si esa
+  API externa está caída, el sistema responde con un error 503 explícito
+  en lugar de fallar de forma confusa.
 - No hay base de datos: el sistema es de consulta en tiempo real, no
   guarda historial de búsquedas. Esto fue una decisión de alcance, no una
   omisión accidental — el enunciado pide consultar datos en vivo, no
@@ -197,4 +201,4 @@ proyecto-microservicios/
   servicio de consulta pública sin datos sensibles ni de usuario.
 - El autocompletado de países en el frontend es solo una ayuda de UX con
   una lista corta predefinida; el campo acepta cualquier país del mundo
-  porque la validación real ocurre en el backend contra RestCountries.
+  porque la validación real ocurre en el backend contra el catálogo local.
