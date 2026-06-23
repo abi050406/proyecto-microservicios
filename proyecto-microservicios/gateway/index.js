@@ -1,8 +1,8 @@
 /**
- * API GATEWAY (ARQUITECTURA ULTRA-RESILIENTE)
- * ------------------------------------------
- * Orquestador central fortificado contra errores de configuración en la nube
- * e inmune a cuelgues del lado del cliente (Frontend).
+ * API GATEWAY (ARQUITECTURA ULTRA-RESILIENTE V2)
+ * ---------------------------------------------
+ * Orquestador central fortificado contra errores de configuración en la nube,
+ * inmune a cuelgues del lado del cliente (Frontend) y protegido contra lecturas de datos indefinidos.
  */
 
 import express from "express";
@@ -71,7 +71,7 @@ async function safeParse(respuesta) {
   } catch (e) {
     return {
       error: "Servidor inicializando",
-      detalle: "El microservicio está despertando en la nube. Por favor, reintenta la consulta."
+      detalle: "El microservicio está despertando en la nube. Por favor, reintenta la consulta en unos segundos."
     };
   }
 }
@@ -88,11 +88,16 @@ async function resolverPaisCompleto(nombrePais) {
 
     const datosPais = await safeParse(respuestaPais);
 
-    if (!respuestaPais.ok) {
-      return { ok: false, status: respuestaPais.status, error: datosPais };
+    // 🛡️ CONTROL DE INICIALIZACIÓN: Si el servicio está despertando o no trae coordenadas, frena limpiamente
+    if (!respuestaPais.ok || datosPais.error || !datosPais.coordenadas) {
+      return { 
+        ok: false, 
+        status: respuestaPais.status || 503, 
+        error: datosPais.error ? datosPais : { error: "Servidor inicializando", detalle: "El servicio de países está despertando en la nube." } 
+      };
     }
 
-    // Consultas en paralelo a clima y hora
+    // Consultas en paralelo a clima y hora (Solo si el paso anterior trajo coordenadas válidas)
     const [respuestaClima, respuestaHora] = await Promise.all([
       fetch(
         `${URL_SERVICIO_CLIMA}/clima/actual?lat=${datosPais.coordenadas.latitud}&lon=${datosPais.coordenadas.longitud}`,
