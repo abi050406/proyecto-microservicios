@@ -1,9 +1,8 @@
 /**
- * API GATEWAY (ARQUITECTURA DEFENSIVA Y RESILIENTE)
- * ------------------------------------------------
- * Este componente actúa como el orquestador central. Ha sido fortificado
- * con lectores de flujo de texto (Safe JSON Parsing) para evitar colapsos
- * cuando los servidores de Render devuelven páginas HTML de inicialización ("Cold Start").
+ * API GATEWAY (ARQUITECTURA ULTRA-RESILIENTE)
+ * ------------------------------------------
+ * Orquestador central fortificado contra errores de configuración en la nube
+ * e inmune a cuelgues del lado del cliente (Frontend).
  */
 
 import express from "express";
@@ -13,9 +12,12 @@ import fetch from "node-fetch";
 const app = express();
 const PUERTO = process.env.PORT || 4000;
 
-const URL_SERVICIO_PAISES = process.env.URL_SERVICIO_PAISES || "http://localhost:4001";
-const URL_SERVICIO_HORA = process.env.URL_SERVICIO_HORA || "http://localhost:4002";
-const URL_SERVICIO_CLIMA = process.env.URL_SERVICIO_CLIMA || "http://localhost:4003";
+// 🛡️ SANITIZADOR AUTOMÁTICO: Borra las diagonales finales mal puestas en el panel de Render
+const limpiarUrl = (url) => url.trim().replace(/\/+$/, "");
+
+const URL_SERVICIO_PAISES = limpiarUrl(process.env.URL_SERVICIO_PAISES || "http://localhost:4001");
+const URL_SERVICIO_HORA = limpiarUrl(process.env.URL_SERVICIO_HORA || "http://localhost:4002");
+const URL_SERVICIO_CLIMA = limpiarUrl(process.env.URL_SERVICIO_CLIMA || "http://localhost:4003");
 
 const NOMBRE_NICARAGUA = "Nicaragua";
 
@@ -32,7 +34,7 @@ app.get("/health", (_req, res) => {
 });
 
 /**
- * Revisa el estado de los tres microservicios internos de forma segura.
+ * Revisa el estado de los tres microservicios internos limpiando URLs.
  */
 app.get("/health/completo", async (_req, res) => {
   const verificar = async (url, nombre) => {
@@ -40,9 +42,8 @@ app.get("/health/completo", async (_req, res) => {
       const r = await fetch(`${url}/health`, { timeout: 60000 });
       const texto = await r.text();
       
-      // Si la respuesta es una página de Render o Cloudflare, lo identificamos de inmediato
       if (texto.includes("<!DOCTYPE") || texto.trim().startsWith("<")) {
-        return { servicio: nombre, url, estado: "inicializando (Render Waking Up Page)" };
+        return { servicio: nombre, url, estado: "inicializando (Render Waking Up)" };
       }
       
       return { servicio: nombre, url, estado: r.ok ? "activo" : "responde con error" };
@@ -61,66 +62,66 @@ app.get("/health/completo", async (_req, res) => {
 });
 
 /**
- * Función auxiliar fortificada: resuelve la información interceptando respuestas HTML erróneas.
+ * Lector de flujos seguro: Evita que respuestas HTML rompan el formateo JSON
  */
-async function resolverPaisCompleto(nombrePais) {
-  const respuestaPais = await fetch(
-    `${URL_SERVICIO_PAISES}/paises/buscar?nombre=${encodeURIComponent(nombrePais)}`,
-    { timeout: 60000 }
-  );
-
-  const textoPais = await respuestaPais.text();
-  let datosPais;
-
-  // 🛡️ PARSEO SEGURO: Evita el crash de "Unexpected token '<'"
+async function safeParse(respuesta) {
+  const texto = await respuesta.text();
   try {
-    datosPais = JSON.parse(textoPais);
+    return JSON.parse(texto);
   } catch (e) {
     return {
-      ok: false,
-      status: 503,
-      error: {
-        error: "Microservicio en inicialización",
-        detalle: "El servidor de países está despertando en la nube. Por favor, reintenta la consulta en unos segundos."
-      }
+      error: "Servidor inicializando",
+      detalle: "El microservicio está despertando en la nube. Por favor, reintenta la consulta."
     };
   }
-
-  if (!respuestaPais.ok) {
-    return { ok: false, status: respuestaPais.status, error: datosPais };
-  }
-
-  // Llamadas en paralelo para clima y hora
-  const [respuestaClima, respuestaHora] = await Promise.all([
-    fetch(
-      `${URL_SERVICIO_CLIMA}/clima/actual?lat=${datosPais.coordenadas.latitud}&lon=${datosPais.coordenadas.longitud}`,
-      { timeout: 60000 }
-    ),
-    fetch(
-      `${URL_SERVICIO_HORA}/hora/calcular?zona=${encodeURIComponent(datosPais.zonaHorariaPrincipal)}`,
-      { timeout: 60000 }
-    ),
-  ]);
-
-  const textoClima = await respuestaClima.text();
-  const textoHora = await respuestaHora.text();
-
-  let datosClima, datosHora;
-
-  try { datosClima = JSON.parse(textoClima); } catch { datosClima = { disponible: false, error: "Servidor de clima despertando." }; }
-  try { datosHora = JSON.parse(textoHora); } catch { datosHora = { disponible: false, error: "Servidor de hora despertando." }; }
-
-  return {
-    ok: true,
-    pais: datosPais,
-    clima: respuestaClima.ok ? datosClima : { disponible: false, error: datosClima },
-    hora: respuestaHora.ok ? datosHora : { disponible: false, error: datosHora },
-  };
 }
 
 /**
- * Endpoint principal de consulta consumido por el frontend.
+ * Resuelve la información combinada de un país de forma segura
  */
+async function resolverPaisCompleto(nombrePais) {
+  try {
+    const respuestaPais = await fetch(
+      `${URL_SERVICIO_PAISES}/paises/buscar?nombre=${encodeURIComponent(nombrePais)}`,
+      { timeout: 60000 }
+    );
+
+    const datosPais = await safeParse(respuestaPais);
+
+    if (!respuestaPais.ok) {
+      return { ok: false, status: respuestaPais.status, error: datosPais };
+    }
+
+    // Consultas en paralelo a clima y hora
+    const [respuestaClima, respuestaHora] = await Promise.all([
+      fetch(
+        `${URL_SERVICIO_CLIMA}/clima/actual?lat=${datosPais.coordenadas.latitud}&lon=${datosPais.coordenadas.longitud}`,
+        { timeout: 60000 }
+      ),
+      fetch(
+        `${URL_SERVICIO_HORA}/hora/calcular?zona=${encodeURIComponent(datosPais.zonaHorariaPrincipal)}`,
+        { timeout: 60000 }
+      ),
+    ]);
+
+    const datosClima = await safeParse(respuestaClima);
+    const datosHora = await safeParse(respuestaHora);
+
+    return {
+      ok: true,
+      pais: datosPais,
+      clima: respuestaClima.ok ? datosClima : { disponible: false, error: datosClima },
+      hora: respuestaHora.ok ? datosHora : { disponible: false, error: datosHora },
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 502,
+      error: { error: "Error de comunicacion", detalle: err.message }
+    };
+  }
+}
+
 app.get("/api/consultar", async (req, res) => {
   const { pais } = req.query;
 
@@ -147,7 +148,7 @@ app.get("/api/consultar", async (req, res) => {
     const nicaragua = esNicaragua ? resultadoPaisElegido : resultadoNicaragua;
 
     if (!nicaragua.ok) {
-      return res.status(503).json(nicaragua.error);
+      return res.status(nicaragua.status || 502).json(nicaragua.error);
     }
 
     return res.status(200).json({
@@ -165,7 +166,7 @@ app.get("/api/consultar", async (req, res) => {
     console.error("[gateway] Error inesperado:", error.message);
     return res.status(502).json({
       error: "Error de comunicacion entre microservicios",
-      detalle: "El gateway no pudo completar la orquestación. Los servicios se están levantando en la nube, por favor espera un momento.",
+      detalle: "El gateway no pudo completar la orquestación. Los servicios se están levantando.",
     });
   }
 });
@@ -178,5 +179,5 @@ app.use((req, res) => {
 });
 
 app.listen(PUERTO, () => {
-  console.log(`Gateway corriendo de forma protegida en puerto ${PUERTO}`);
+  console.log(`Gateway corriendo de forma ultra-protegida en puerto ${PUERTO}`);
 });
